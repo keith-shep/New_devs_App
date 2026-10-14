@@ -5,6 +5,28 @@ from app.core.auth import authenticate_request as get_current_user
 
 router = APIRouter()
 
+@router.get("/properties")
+async def get_properties(
+    current_user: dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    tenant_id = getattr(current_user, "tenant_id", None)
+    if not tenant_id:
+        raise HTTPException(status_code=403, detail="No tenant associated with user")
+
+    from app.core.database_pool import db_pool
+    await db_pool.initialize()
+    if not db_pool.pool:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with db_pool.pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, name, timezone FROM properties WHERE tenant_id = $1 ORDER BY name",
+            tenant_id
+        )
+
+    items = [dict(row) for row in rows]
+    return {"items": items, "total": len(items)}
+
 @router.get("/dashboard/summary")
 async def get_dashboard_summary(
     property_id: str,
