@@ -1,7 +1,10 @@
 import json
+import logging
 import redis.asyncio as redis
 from typing import Dict, Any
 import os
+
+logger = logging.getLogger(__name__)
 
 # Initialize Redis client (typically configured centrally).
 redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
@@ -13,7 +16,8 @@ async def get_revenue_summary(property_id: str, tenant_id: str) -> Dict[str, Any
     cache_key = f"revenue:{property_id}"
     
     # Try to get from cache
-    cached = await redis_client.get(cache_key)
+    # cache key should depend on both property_id and tenant_id
+    cached = await redis_client.get(cache_key) 
     if cached:
         return json.loads(cached)
     
