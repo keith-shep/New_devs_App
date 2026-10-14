@@ -38,9 +38,14 @@ async def calculate_monthly_revenue(property_id: str, month: int, year: int, db_
     
     return Decimal('0') # Placeholder for now until DB connection is finalized
 
+# The dashboard reports on a single month: March 2024, the period the clients' reports cover
+REPORTING_YEAR = 2024
+REPORTING_MONTH = 3
+
 async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str, Any]:
     """
-    Aggregates revenue from database.
+    Aggregates revenue from database for the reporting month (by check-in date).
+    Month boundaries use the property's timezone, not UTC: 2024-02-29 23:30 UTC is March 1st in Paris.
     """
     try:
         # Import database pool
@@ -53,15 +58,18 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
             async with db_pool.pool.acquire() as conn:
                 query = """
                     SELECT
-                        property_id,
-                        SUM(total_amount) as total_revenue,
+                        r.property_id,
+                        SUM(r.total_amount) as total_revenue,
                         COUNT(*) as reservation_count
-                    FROM reservations
-                    WHERE property_id = $1 AND tenant_id = $2
-                    GROUP BY property_id
+                    FROM reservations r
+                    JOIN properties p ON p.id = r.property_id AND p.tenant_id = r.tenant_id
+                    WHERE r.property_id = $1 AND r.tenant_id = $2
+                        AND r.check_in_date >= (make_timestamp($3, $4, 1, 0, 0, 0) AT TIME ZONE p.timezone)
+                        AND r.check_in_date < ((make_timestamp($3, $4, 1, 0, 0, 0) + interval '1 month') AT TIME ZONE p.timezone)
+                    GROUP BY r.property_id
                 """
 
-                row = await conn.fetchrow(query, property_id, tenant_id)
+                row = await conn.fetchrow(query, property_id, tenant_id, REPORTING_YEAR, REPORTING_MONTH)
 
                 if row:
                     total_revenue = Decimal(str(row["total_revenue"]))
