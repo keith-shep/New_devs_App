@@ -13,13 +13,14 @@ async def get_revenue_summary(property_id: str, tenant_id: str) -> Dict[str, Any
     """
     Fetches revenue summary, utilizing caching to improve performance.
     """
-    cache_key = f"revenue:{property_id}"
-    
+    # Scope the key by tenant: property IDs are only unique per tenant (e.g. both tenants have prop-001)
+    cache_key = f"revenue:{tenant_id}:{property_id}"
+
     # Try to get from cache
-    # cache key should depend on both property_id and tenant_id
-    # cached = await redis_client.get(cache_key) 
-    # if cached:
-    #     return json.loads(cached)
+    cached = await redis_client.get(cache_key)
+    # logger.debug(f"Revenue cache {'HIT' if cached else 'MISS'}: {cache_key}")
+    if cached:
+        return json.loads(cached)
     
     # Revenue calculation is delegated to the reservation service.
     from app.services.reservations import calculate_total_revenue
