@@ -17,9 +17,9 @@ async def get_revenue_summary(property_id: str, tenant_id: str) -> Dict[str, Any
     
     # Try to get from cache
     # cache key should depend on both property_id and tenant_id
-    cached = await redis_client.get(cache_key) 
-    if cached:
-        return json.loads(cached)
+    # cached = await redis_client.get(cache_key) 
+    # if cached:
+    #     return json.loads(cached)
     
     # Revenue calculation is delegated to the reservation service.
     from app.services.reservations import calculate_total_revenue
